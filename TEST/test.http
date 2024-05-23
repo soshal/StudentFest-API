@@ -1,0 +1,10 @@
+POST  http://localhost:5500/events
+Content-Type: application/json
+
+{
+  "name": "New Event",
+  "date": "2021-12-31T15:30:00.000Z",
+  "location": "New York",
+  "description": "New Year's Eve Party"
+
+}
