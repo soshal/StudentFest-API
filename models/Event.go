@@ -4,7 +4,7 @@ import (
 	"college/db"
 	"time"
 
-	"golang.org/x/tools/go/analysis/passes/defers"
+	
 )
 
 type Event struct {
@@ -33,10 +33,66 @@ func (e *Event) Save() {
 	}
 	id, err := res.LastInsertId()
 	e.Id = id
-	return err
+	if err != nil {
+		panic(err)
+	}
 }
 
-func GetEvents() []Event {
-	return events
+func GetEvents() ([]Event, error) {
+	rows, err := db.DB.Query("SELECT * FROM events")
+	if err != nil {
+		panic(err)
+	}
+	defer rows.Close()
+
+	events := []Event{}
+	for rows.Next() {
+		e := Event{}
+		err := rows.Scan(&e.Id, &e.Name, &e.Description, &e.Location, &e.Date, &e.UserId)
+		if err != nil {
+			 return nil, err
+		}
+		events = append(events, e)
+	}
+	return events,nil
 }
+
+func GetEventbyId(id int64) (Event, error) {
+	row := db.DB.QueryRow("SELECT * FROM events WHERE id = ?", id)
+	e := Event{}
+	err := row.Scan(&e.Id, &e.Name, &e.Description, &e.Location, &e.Date, &e.UserId)
+	if err != nil {
+		return e, err
+	}
+	return e, nil
+}
+
+func (e Event) UpdateEvent() error {
+	query := `UPDATE events SET name = ?, description = ?, location = ?, date = ? WHERE id = ?`
+	stmt, err := db.DB.Prepare(query)
+	if err != nil{
+		return err
+	}
+
+	_, err = stmt.Exec(e.Name, e.Description, e.Location, e.Date, e.Id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (e Event) DeleteEvent() error {
+	query := `DELETE FROM events WHERE id = ?`
+	stmt, err := db.DB.Prepare(query)
+	if err != nil {
+		return err
+	}
+	_, err = stmt.Exec(e.Id)
+	if err != nil {
+		return err
+	}
+	return nil
+}	
+
+
 
