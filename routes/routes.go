@@ -1,19 +1,22 @@
 package routes
 
-
 import (
-	
-
-
+	"college/middleware"
 	"github.com/gin-gonic/gin"
 )
 
+func RegisterRoutes(server *gin.Engine) {
+	server.GET("/events", getEvents)    // GET, POST, PUT, PATCH, DELETE
+	server.GET("/events/:id", getEvent) // /events/1, /events/5
 
-func ResigterEventRoutes(r *gin.Engine) {
-	r.GET("/events", eventManager)
-	r.GET("/events/:id", eventManager)
-	r.POST("/events", contentManager)
-	r.PUT("/events/:id", updateManager)
-	r.DELETE("/events/:id", deleteManager)
-	r.POST("/login", signup)
+	authenticated := server.Group("/")
+	authenticated.Use(middlewares.Authenticate)
+	authenticated.POST("/events", createEvent)
+	authenticated.PUT("/events/:id", updateEvent)
+	authenticated.DELETE("/events/:id", deleteEvent)
+	authenticated.POST("/events/:id/register", registerForEvent)
+	authenticated.DELETE("/events/:id/register", cancelRegistration)
+
+	server.POST("/signup", signup)
+	server.POST("/login", login)
 }

@@ -1,45 +1,62 @@
 package models
 
 import (
+	"errors"
+
 	"college/db"
 	"college/utils"
-	"time"
 )
 
-
 type User struct {
-	
-	Id          int64
-	Email       string `Binding:"required"`
-	Password    string `Binding:"required"`
-	
-}	
-
-
-func (u *User) Save() {
-	query := `INSERT INTO users(email, password) VALUES(?,?)`
-	stmt, err := db.DB.Prepare(query)
-	if err != nil {
-		panic(err)
-	}
-	defer stmt.Close()
-	
-	
-	password, err :=utils.HashPassword(u.Password) // hashing the passowrd
-
-	if err != nil {
-		panic(err)
-	}
-
-	res, err := stmt.Exec(u.Email, password)
-	if err != nil {
-		panic(err)
-	}
-	id, err := res.LastInsertId()
-	u.Id = id
-	if err != nil {
-		panic(err)
-	}
+	ID       int64
+	Email    string `binding:"required"`
+	Password string `binding:"required"`
 }
 
+func (u User) Save() error {
+	query := "INSERT INTO users(email, password) VALUES (?, ?)"
+	stmt, err := db.DB.Prepare(query)
 
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	hashedPassword, err := utils.HashPassword(u.Password)
+
+	if err != nil {
+		return err
+	}
+
+	result, err := stmt.Exec(u.Email, hashedPassword)
+
+	if err != nil {
+		return err
+	}
+
+	userId, err := result.LastInsertId()
+
+	u.ID = userId
+	return err
+}
+
+func (u *User) ValidateCredentials() error {
+	query := "SELECT id, password FROM users WHERE email = ?"
+	row := db.DB.QueryRow(query, u.Email)
+
+	var retrievedPassword string
+	err := row.Scan(&u.ID, &retrievedPassword)
+
+	if err != nil {
+		return errors.New("Credentials invalid")
+	}
+
+	passwordIsValid := utils.CheckPasswordHash(u.Password, retrievedPassword)
+
+	if !passwordIsValid {
+		return errors.New("Credentials invalid")
+	}
+
+	return nil
+}

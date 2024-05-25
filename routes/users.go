@@ -1,52 +1,56 @@
 package routes
 
 import (
-	"college/models"
 	"net/http"
 
+	"college/models"
+	"college/utils"
 	"github.com/gin-gonic/gin"
 )
 
-
-func  signup(c *gin.Context){
-
+func signup(context *gin.Context) {
 	var user models.User
-	err := c.ShouldBindJSON(&user)
+
+	err := context.ShouldBindJSON(&user)
+
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid data",
-		})
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Could not parse request data."})
 		return
 	}
 
 	err = user.Save()
+
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Internal server error",
-		})
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not save user."})
 		return
 	}
 
-
-
-
-
-
+	context.JSON(http.StatusCreated, gin.H{"message": "User created successfully"})
 }
 
-
-func  login(c *gin.Context){
+func login(context *gin.Context) {
 	var user models.User
-	err := c.ShouldBindJSON(&user)
+
+	err := context.ShouldBindJSON(&user)
+
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid data",
-		})
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Could not parse request data."})
 		return
-	} 
+	}
 
+	err = user.ValidateCredentials()
 
+	if err != nil {
+		context.JSON(http.StatusUnauthorized, gin.H{"message": "Could not authenticate user."})
+		return
+	}
 
+	token, err := utils.GenerateToken(user.Email, user.ID)
 
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not authenticate user."})
+		return
+	}
 
+	context.JSON(http.StatusOK, gin.H{"message": "Login successful!", "token": token})
 }

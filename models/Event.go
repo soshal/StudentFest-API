@@ -1,98 +1,135 @@
 package models
 
 import (
-	"college/db"
 	"time"
 
-	
+	"college/db"
 )
 
 type Event struct {
-	Id          int64
-	Name        string  `Binding:"required"`
-	Description string	`Binding:"required"`
-
-	Date        time.Time
-	Location    string `Binding:"required"`
-	UserId      int
+	ID          int64
+	Name        string    `binding:"required"`
+	Description string    `binding:"required"`
+	Location    string    `binding:"required"`
+	DateTime    time.Time `binding:"required"`
+	UserID      int64
 }
 
 var events = []Event{}
 
-func (e *Event) Save() {
-	query := `INSERT INTO events(name, description, location, date, user_id) VALUES(?,?,?,?,?)`
+func (e *Event) Save() error {
+	query := `
+	INSERT INTO events(name, description, location, dateTime, user_id) 
+	VALUES (?, ?, ?, ?, ?)`
 	stmt, err := db.DB.Prepare(query)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	defer stmt.Close()
-
-	res, err := stmt.Exec(e.Name, e.Description, e.Location, e.Date, e.UserId)
+	result, err := stmt.Exec(e.Name, e.Description, e.Location, e.DateTime, e.UserID)
 	if err != nil {
-		panic(err)
+		return err
 	}
-	id, err := res.LastInsertId()
-	e.Id = id
-	if err != nil {
-		panic(err)
-	}
+	id, err := result.LastInsertId()
+	e.ID = id
+	return err
 }
 
-func GetEvents() ([]Event, error) {
-	rows, err := db.DB.Query("SELECT * FROM events")
+func GetAllEvents() ([]Event, error) {
+	query := "SELECT * FROM events"
+	rows, err := db.DB.Query(query)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer rows.Close()
 
-	events := []Event{}
+	var events []Event
+
 	for rows.Next() {
-		e := Event{}
-		err := rows.Scan(&e.Id, &e.Name, &e.Description, &e.Location, &e.Date, &e.UserId)
+		var event Event
+		err := rows.Scan(&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID)
+
 		if err != nil {
-			 return nil, err
+			return nil, err
 		}
-		events = append(events, e)
+
+		events = append(events, event)
 	}
-	return events,nil
+
+	return events, nil
 }
 
-func GetEventbyId(id int64) (Event, error) {
-	row := db.DB.QueryRow("SELECT * FROM events WHERE id = ?", id)
-	e := Event{}
-	err := row.Scan(&e.Id, &e.Name, &e.Description, &e.Location, &e.Date, &e.UserId)
+func GetEventByID(id int64) (*Event, error) {
+	query := "SELECT * FROM events WHERE id = ?"
+	row := db.DB.QueryRow(query, id)
+
+	var event Event
+	err := row.Scan(&event.ID, &event.Name, &event.Description, &event.Location, &event.DateTime, &event.UserID)
 	if err != nil {
-		return e, err
+		return nil, err
 	}
-	return e, nil
+
+	return &event, nil
 }
 
-func (e Event) UpdateEvent() error {
-	query := `UPDATE events SET name = ?, description = ?, location = ?, date = ? WHERE id = ?`
+func (event Event) Update() error {
+	query := `
+	UPDATE events
+	SET name = ?, description = ?, location = ?, dateTime = ?
+	WHERE id = ?
+	`
 	stmt, err := db.DB.Prepare(query)
-	if err != nil{
-		return err
-	}
 
-	_, err = stmt.Exec(e.Name, e.Description, e.Location, e.Date, e.Id)
 	if err != nil {
 		return err
 	}
-	return nil
+
+	defer stmt.Close()
+
+	_, err = stmt.Exec(event.Name, event.Description, event.Location, event.DateTime, event.ID)
+	return err
 }
 
-func (e Event) DeleteEvent() error {
-	query := `DELETE FROM events WHERE id = ?`
+func (event Event) Delete() error {
+	query := "DELETE FROM events WHERE id = ?"
 	stmt, err := db.DB.Prepare(query)
+
 	if err != nil {
 		return err
 	}
-	_, err = stmt.Exec(e.Id)
+
+	defer stmt.Close()
+
+	_, err = stmt.Exec(event.ID)
+	return err
+}
+
+func (e Event) Register(userId int64) error {
+	query := "INSERT INTO registrations(event_id, user_id) VALUES (?, ?)"
+	stmt, err := db.DB.Prepare(query)
+
 	if err != nil {
 		return err
 	}
-	return nil
-}	
 
+	defer stmt.Close()
 
+	_, err = stmt.Exec(e.ID, userId)
 
+	return err
+}
+
+func (e Event) CancelRegistration(userId int64) error {
+	query := "DELETE FROM registrations WHERE event_id = ? AND user_id = ?"
+	stmt, err := db.DB.Prepare(query)
+
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	_, err = stmt.Exec(e.ID, userId)
+
+	return err
+}
